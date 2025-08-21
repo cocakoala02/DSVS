@@ -1,0 +1,16 @@
+Address = "tcp://127.0.0.1:7007"
+Description = "drynx"
+ListenAddress = "127.0.0.1:7007"
+Private = "2a767a78806d661290f9f83a0d6158514dfd8b5ef546470344df5aaf1858a3cf"
+Public = "5d53d7fbf0b033311c193956ce1eed19642052ed5b3aad3b0ac1afb2180f435c38e2de7f6ab178ecf66aac026ddca8edffab9360fc704080f897974244eab00f"
+Suite = "bn256.G1"
+URL = "https://127.0.0.1:7008"
+WebSocketTLSCertificate = ""
+WebSocketTLSCertificateKey = ""
+
+[Services]
+
+  [Services.Skipchain]
+    Private = "76ab6e79a08abd2b0f928302423438b80a86ded57b5340a8bd5375aadbe33806"
+    Public = "149b0b546ff8dba92bd8366799c8e7f0dc66ff617e49537fd326d3f03b1cfbcf644e8a3854f98f1b29ae85b70a4a7399c2ed448f9b91c925e8466941f222d4bf019616dd447735a0352c7d9feff095012d6da1322b1d2df438e6372d30a822b0730ccd0dcf1ccc7ce0152596810f0f1185d6809b72c314006df58fbfa3aeef3d"
+    Suite = "bn256.adapter"

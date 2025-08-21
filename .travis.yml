@@ -1,0 +1,13 @@
+dist: trusty
+
+language: go
+go: stable
+
+before_install: make test_lint test_fmt
+install: go get -t ./...
+script: make test_goveralls
+
+notifications:
+  email: false
+cache:
+  directories: $GOPATH/pkg

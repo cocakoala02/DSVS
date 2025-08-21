@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL 查询页面</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-2xl mx-auto bg-white shadow rounded-xl p-6 space-y-4">
+    <h1 class="text-xl font-bold">SQL 查询页面</h1>
+
+    <textarea id="sqlInput" class="w-full border rounded p-2 h-32" placeholder="请输入 SQL 语句..."></textarea>
+
+    <button onclick="submitQuery()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+      查询
+    </button>
+
+    <div>
+      <h2 class="font-semibold mt-4">查询结果：</h2>
+      <pre id="queryResult" class="bg-gray-100 p-2 rounded text-sm text-gray-800">（等待查询...）</pre>
+    </div>
+
+    <div>
+      <h2 class="font-semibold mt-4">验证信息：</h2>
+      <pre id="validationResult" class="bg-gray-100 p-2 rounded text-sm text-gray-800">（等待验证...）</pre>
+    </div>
+  </div>
+
+  <script>
+    function submitQuery() {
+      const sql = document.getElementById('sqlInput').value.trim();
+      const queryResult = document.getElementById('queryResult');
+      const validationResult = document.getElementById('validationResult');
+
+      if (!sql) {
+        alert("请输入 SQL 语句！");
+        return;
+      }
+
+      queryResult.textContent = "正在查询...";
+      validationResult.textContent = "正在验证...";
+
+      fetch('http://localhost:8080/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql: sql })
+      })
+      .then(response => response.json())
+      .then(data => {
+        queryResult.textContent = data.result || '无返回结果';
+        validationResult.textContent = data.validation || '无验证信息';
+      })
+      .catch(err => {
+        queryResult.textContent = '';
+        validationResult.textContent = '请求失败：' + err.message;
+      });
+    }
+  </script>
+</body>
+</html>
