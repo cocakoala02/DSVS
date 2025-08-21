@@ -1526,6 +1526,70 @@ func GetDataFromDataProvider(dpname string, DptoPath map[string]string, tablenam
 	return clm, nil
 }
 
+// func GetDataFromDataProvider(dpname string, DptoPath map[string]string, tablename string, sql_survey string, opname string) ([]int64, error) {
+// 	dsn, ok := DptoPath[dpname]
+// 	if !ok || dsn == "" {
+// 		return nil, fmt.Errorf("no DSN for DP %s", dpname)
+// 	}
+
+// 	db, err := sql.Open("mysql", dsn)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("open mysql: %w", err)
+// 	}
+// 	defer db.Close()
+
+// 	// 只允许 SELECT（保护 DP 本地库）
+// 	s := strings.TrimSpace(strings.ToUpper(sql_survey))
+// 	if !strings.HasPrefix(s, "SELECT") {
+// 		return nil, fmt.Errorf("only SELECT is allowed")
+// 	}
+
+// 	// 如果用户 SQL 里写的是逻辑表名（或你希望强制表名），可把 FROM ... 统一替换为本地物理表名
+// 	// 注意：MySQL 用反引号 `table`
+// 	// 你也可以不替换，要求前端直接写正确的 DP 本地表名。
+// 	reFrom := regexp.MustCompile(`(?i)FROM\s+[\w\.\` + "`" + `"]+`)
+// 	query := reFrom.ReplaceAllString(sql_survey, fmt.Sprintf("FROM `%s`", tablename))
+
+// 	// 根据操作类型，决定怎么扫描
+// 	switch strings.ToLower(opname) {
+// 	case "count", "sum", "mean", "max", "min", "avg":
+// 		// 这些通常返回单行单列，直接扫描为一个 int64
+// 		row := db.QueryRow(query)
+// 		var v sql.NullFloat64
+// 		if err := row.Scan(&v); err != nil {
+// 			return nil, fmt.Errorf("scan agg row: %w", err)
+// 		}
+// 		if !v.Valid {
+// 			return []int64{0}, nil
+// 		}
+// 		// 统一转成 int64（Drynx 的后续流程是整型）
+// 		return []int64{int64(math.Round(v.Float64))}, nil
+
+// 	default:
+// 		// 如果是 SELECT 某列（非聚合），逐行扫成 []int64（你之前的逻辑）
+// 		rows, err := db.Query(query)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("query: %w", err)
+// 		}
+// 		defer rows.Close()
+
+// 		out := make([]int64, 0, 1024)
+// 		for rows.Next() {
+// 			var p sql.NullFloat64
+// 			if err := rows.Scan(&p); err != nil {
+// 				return nil, fmt.Errorf("scan row: %w", err)
+// 			}
+// 			if p.Valid {
+// 				out = append(out, int64(math.Round(p.Float64)))
+// 			}
+// 		}
+// 		if err := rows.Err(); err != nil {
+// 			return nil, err
+// 		}
+// 		return out, nil
+// 	}
+// }
+
 // -----------------
 // Utility functions
 // -----------------

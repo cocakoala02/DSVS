@@ -52,7 +52,7 @@ func LoadToml() string {
 	newConfig := datastruct.Config{
 		CNs:       make([]datastruct.NodeConfig, 3),
 		VNs:       make([]datastruct.NodeConfig, 3),
-		DPs:       make([]datastruct.NodeConfig, 9),
+		DPs:       make([]datastruct.NodeConfig, 99), //consum max = 99
 		Client:    ClientSet(config.Client),
 		Ranges:    18,
 		OutputNum: 1,
@@ -63,7 +63,7 @@ func LoadToml() string {
 				return 3
 			}
 		}(config.ServerNum),
-		CuttingFactor: 30,
+		CuttingFactor: 0,
 	}
 	for i, v := range nodes {
 		switch i {

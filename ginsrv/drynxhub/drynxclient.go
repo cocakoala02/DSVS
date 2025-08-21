@@ -26,9 +26,20 @@ import (
 
 // global value, maybe ok
 var config datastruct.Config
+var KnownCropIPs = map[string]string{
+	"A": "127.0.0.1:7013",
+	"B": "127.0.0.1:7015",
+	"C": "127.0.0.1:7017",
+	"D": "127.0.0.1:7019",
+	"E": "127.0.0.1:7021",
+	"F": "127.0.0.1:7023",
+	"G": "127.0.0.1:7025",
+	"H": "127.0.0.1:7027",
+	"I": "127.0.0.1:7029",
+}
 
 func init() {
-	path := LoadToml()
+	path := LoadToml() //read toml file and generate config json
 	LoadConfig(path)
 }
 
@@ -54,13 +65,13 @@ func LoadConfig(path string) {
 	// }
 }
 
-func SurveyRun(req *datastruct.TriSurReq) (res float64, valres string, err error) {
+func SurveyRun(req *datastruct.TriSurReq) (res float64, valres bool, err error) {
 
 	// 2. 生成查询语句
 	client := drynx_services.NewDrynxClient(&onet_network.ServerIdentity{URL: "http://" + config.Client}, "ClientOfSurvey")
 	sq, err := GenSQ(req, client)
 	if err != nil {
-		return 0, "cuowu", err
+		return 0, false, err
 	}
 
 	// 3. 开启验证过程
@@ -95,24 +106,25 @@ func SurveyRun(req *datastruct.TriSurReq) (res float64, valres string, err error
 	// 4. 查询与结果聚合
 	_, aggregations, err := client.SendSurveyQuery(sq)
 	if err != nil {
-		return res, "cuowu", err
+		return res, false, err
 	}
 	result, ok := float64(0), false
 	for _, a := range *aggregations {
 		if len(a) != 1 {
-			return res, "cuowu", errors.New("line in aggregation larger than one, dunno how to print")
+			return res, false, errors.New("line in aggregation larger than one, dunno how to print")
 		}
 		if ok && result != a[0] {
-			return res, "cuowu", errors.New("not same value found in aggregation, dunno how to print")
+			return res, false, errors.New("not same value found in aggregation, dunno how to print")
 		}
 		result = a[0]
 		ok = true
 	}
 
 	var validres string
+	var flag bool
+
 	if sq.Query.Proofs != 0 {
 		// 5. 结束验证
-		var flag bool
 		if len(sq.Query.RosterVNs.List) > 0 {
 			clientSkip := drynx_services.NewDrynxClient(sq.Query.RosterVNs.List[0], "simul-skip-"+sq.Query.Operation.NameOp)
 
@@ -136,9 +148,9 @@ func SurveyRun(req *datastruct.TriSurReq) (res float64, valres string, err error
 			if err != nil {
 				log.Fatal("Error unmarshaling block data:", err)
 			}
-			fmt.Printf("msg 类型是：%T\n", msg)
+			// fmt.Printf("msg 类型是：%T\n", msg)
 
-			fmt.Printf("Block Data: %+v\n", msg)
+			// fmt.Printf("Block Data: %+v\n", msg)
 
 			// 类型断言
 			dataBlock, ok := msg.(*libdrynx.DataBlock)
@@ -168,14 +180,15 @@ func SurveyRun(req *datastruct.TriSurReq) (res float64, valres string, err error
 	}
 
 	fmt.Println(result)
+	fmt.Println(validres)
 
-	return result, validres, nil
+	return result, flag, nil
 }
 
 // set the params of GenerateSurvey
 func GenSQ(req *datastruct.TriSurReq, client *drynx_services.API) (resp libdrynx.SurveyQuery, err error) {
 	// 1. network
-	network, err := MakeNetWork()
+	network, err := MakeNetWork(req.CorpID)
 	if err != nil {
 		return libdrynx.SurveyQuery{}, err
 	}
@@ -184,6 +197,7 @@ func GenSQ(req *datastruct.TriSurReq, client *drynx_services.API) (resp libdrynx
 	surveyID := uuid.NewV4().String()
 	// 3. sql and Operation
 	sql := req.Sql
+
 	s := strings.ToUpper(strings.TrimSpace(sql))
 	var Operation string
 	switch {
@@ -285,20 +299,122 @@ func SignatureOfRanges(ranges []*[]int64, nbrserver int) []*[]libdrynx.PublishSi
 	return ps
 }
 
-// make the network for every different request instead of being a global value
-func MakeNetWork() (network *datastruct.TriRoster, err error) {
+// // make the network for every different request instead of being a global value
+// func MakeNetWork(cropod []string) (network *datastruct.TriRoster, err error) {
 
-	network = &datastruct.TriRoster{
-		CNs: ConfigToRoster(config.CNs),
+// 	network = &datastruct.TriRoster{
+// 		VNs: ConfigToRoster(config.VNs),
+// 	}
+
+// 	network.CNs = ConfigToRoster(config.CNs)
+// 	network.DPs = ConfigToRoster(config.DPs)
+// 	network.CnToDPs = MakeCNToDP(*network.CNs, *network.DPs)
+// 	network.Total = len(network.CNs.List) + len(network.DPs.List) + len(network.VNs.List)
+// 	network.IdToPub = MakePubMap(network)
+
+// 	return network, nil
+// }
+
+func MakeNetWork(cropod []string) (network *datastruct.TriRoster, err error) {
+	// 1) 选 VN：固定 3 个
+	if len(config.VNs) < 3 {
+		return nil, fmt.Errorf("配置中的 VNs 少于 3 个")
+	}
+	vns := config.VNs[:3]
+
+	// 2) 选 DP：由 cropod 数量决定（至少 2 个）
+	dpNodes, err := selectDPsByCropIDs(cropod, config.DPs, config.DpMap)
+	if err != nil {
+		return nil, err
+	}
+	if len(dpNodes) < 2 {
+		return nil, fmt.Errorf("至少需要 2 个 DP，当前只有 %d", len(dpNodes))
 	}
 
-	network.VNs = ConfigToRoster(config.VNs)
-	network.DPs = ConfigToRoster(config.DPs)
-	network.CnToDPs = MakeCNToDP(*network.CNs, *network.DPs)
+	// 3) 决定 CN 数量：最少 2、最多 3；当 DP=2→2 个；DP=3→3 个；DP>3→3 个
+	cnWanted := 2
+	if len(dpNodes) >= 3 {
+		cnWanted = 3
+	}
+	if len(config.CNs) < cnWanted {
+		return nil, fmt.Errorf("配置中的 CNs 不足，需要 %d 个，当前只有 %d 个", cnWanted, len(config.CNs))
+	}
+	cns := config.CNs[:cnWanted]
+
+	// 4) 组装 roster
+	network = &datastruct.TriRoster{
+		VNs: ConfigToRoster(vns),
+		CNs: ConfigToRoster(cns),
+		DPs: ConfigToRoster(dpNodes),
+	}
+	network.CnToDPs = MakeCNToDP(*network.CNs, *network.DPs) // 按 i%len(CN) 均匀分配，正好符合你的策略
 	network.Total = len(network.CNs.List) + len(network.DPs.List) + len(network.VNs.List)
 	network.IdToPub = MakePubMap(network)
 
 	return network, nil
+}
+
+// ------- 新增：根据部门ID选择 DP 节点 -------
+// cropod: 前端传的部门ID列表
+// allDPs: 配置中的全部 DP 列表
+// idToIndex: 可选映射(部门ID -> 在 allDPs 中的索引)，没有就按顺序取前 N 个
+func selectDPsByCropIDs(cropod []string, allDPs []datastruct.NodeConfig, idToIndex map[string]int) ([]datastruct.NodeConfig, error) {
+	// 去重，避免重复部门ID导致重复 DP
+	uniqIDs := make([]string, 0, len(cropod))
+	seen := make(map[string]struct{}, len(cropod))
+	for _, id := range cropod {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniqIDs = append(uniqIDs, id)
+	}
+
+	want := len(uniqIDs)
+	if want < 2 {
+		want = 2 // 至少 2 个 DP
+	}
+	if want > len(allDPs) {
+		return nil, fmt.Errorf("需要 %d 个 DP，但配置中只有 %d 个", want, len(allDPs))
+	}
+
+	// 优先用映射；没有就顺序取前 N 个
+	picked := make([]datastruct.NodeConfig, 0, want)
+	if idToIndex != nil && len(idToIndex) > 0 {
+		idxSeen := make(map[int]struct{}, want)
+		for _, id := range uniqIDs {
+			idx, ok := idToIndex[id]
+			if !ok {
+				return nil, fmt.Errorf("部门ID %q 在配置 DpMap 中没有对应 DP", id)
+			}
+			if idx < 0 || idx >= len(allDPs) {
+				return nil, fmt.Errorf("DpMap[%q]=%d 越界(0..%d)", id, idx, len(allDPs)-1)
+			}
+			if _, dup := idxSeen[idx]; dup {
+				// 同一个 DP 被多个ID映射到，跳过重复
+				continue
+			}
+			idxSeen[idx] = struct{}{}
+			picked = append(picked, allDPs[idx])
+			if len(picked) == want {
+				break
+			}
+		}
+		if len(picked) < want {
+			// 映射不够就从剩余里顺序补齐
+			for i := 0; i < len(allDPs) && len(picked) < want; i++ {
+				if _, used := idxSeen[i]; used {
+					continue
+				}
+				picked = append(picked, allDPs[i])
+			}
+		}
+	} else {
+		// 无映射：按顺序取前 want 个
+		picked = append(picked, allDPs[:want]...)
+	}
+
+	return picked, nil
 }
 
 // the map from node to its public
