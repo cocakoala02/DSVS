@@ -48,3 +48,11 @@ pre_compute_multiplications.gob
 
 # generated
 /Coding/
+
+# 忽略大文件
+*.csv
+
+# 忽略编译生成文件
+bin/
+cmd/drynx-client
+cmd/drynx-server
