@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>DSVS Survey 查询页面</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      background-color: #f9f9f9;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      font-family: monospace;
+      font-size: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-bottom: 20px;
+      cursor: pointer;
+    }
+
+    .result-box {
+      border: 1px solid #ccc;
+      padding: 15px;
+      background: #fff;
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>DSVS SQL 查询页面</h2>
+
+  <label for="sqlInput">请输入 SQL 查询语句：</label><br>
+  <textarea id="sqlInput" placeholder="例如：SELECT SUM(visits) FROM statistics_experiment_data"></textarea>
+
+  <br>
+  <button onclick="submitQuery()">查询</button>
+
+  <h3>查询结果：</h3>
+  <div id="queryResult" class="result-box">（等待查询...）</div>
+
+  <h3>验证结果：</h3>
+  <div id="validationResult" class="result-box">（等待响应...）</div>
+
+ <script>
+  async function submitQuery() {
+    const sql = document.getElementById("sqlInput").value;
+    const resultBox = document.getElementById("queryResult");
+    const validationBox = document.getElementById("validationResult");
+
+    if (!sql.trim()) {
+      alert("请输入 SQL 查询语句！");
+      return;
+    }
+
+    const payload = { sql };
+
+    try {
+      const response = await fetch("http://0.0.0.0:8088/survey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const json = await response.json();
+
+      if (response.ok) {
+        resultBox.textContent = json.data;
+        validationBox.textContent = json.success
+
+      } else {
+        resultBox.textContent = "查询失败（HTTP 错误）";
+        validationBox.textContent = "错误码：" + response.status;
+      }
+
+    } catch (err) {
+      resultBox.textContent = "请求失败：" + err;
+      validationBox.textContent = "请检查网络连接或后端服务状态。";
+    }
+  }
+</script>
+
+
+</body>
+</html>
