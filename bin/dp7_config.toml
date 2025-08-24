@@ -1,0 +1,19 @@
+Suite = "bn256.G1"
+Public = "8ea35ede19ce3e444b2604997693a2ed2fb9ccf0e2a18f2f86f942b272da7c93116a65c4620c9c86a9d1f301e745e2887d3294c6dab5b1c7de60cbd58a0edb68"
+Private = "0c1ec10e7e6d080fa74da1856b91d9a83c642b87d186f047eb0574223fbf71b8"
+Address = "tcp://127.0.0.1:7013"
+ListenAddress = "127.0.0.1:7013"
+Description = "drynx-dp"
+URL = "https://127.0.0.1:7014"
+WebSocketTLSCertificate = ""
+WebSocketTLSCertificateKey = ""
+
+[Services]
+  [Services.Skipchain]
+    Suite = "bn256.adapter"
+    Public = "31a3f81f3b41f8c5c06544972a1f4dade28786547f5e62a53995a75a733cc6f487580e06c239b51cbaef4b34544226145f87791c292965fe3a4643d26541d862478693edda41308fb4d50413266f04ee6f1bfdd8d1f7dd77b35be6dcef0a6ad443d7c556acb5f79c2148a1d4ce9295f32877cdefb47f6e99e542a8d53fdd6c62"
+    Private = "33dc62bb181ffd0bbdd51a6f4d5070f6360ab832c902d58ce653050b4f23f03e"
+
+[database]
+  driver = "mysql"
+  dsn = "root:xx..2525@tcp(127.0.0.1:3306)/learn_sql?parseTime=true&timeout=2s&readTimeout=2s"

@@ -25,67 +25,92 @@ func LoadToml() string {
 	}
 	cwdLoad := cwd + "/bin"
 
-	// load the .toml in nodes
-	nodes := make([]datastruct.SeverToml, 15)
-	for i := 0; i < 15; i++ {
-		tomlPath := cwdLoad + "/node" + strconv.Itoa(i+1) + "_config.toml"
-		if _, err := toml.DecodeFile(tomlPath, &nodes[i]); err != nil {
-			fmt.Println("load .toml err!:", err)
-			return ""
+	// loader
+	loadServerToml := func(path string, dst *datastruct.SeverToml) bool {
+		if _, err := toml.DecodeFile(path, dst); err != nil {
+			fmt.Println("load .toml err!:", err, "path:", path)
+			return false
 		}
+		return true
 	}
 
-	// open and load the .json
-	file, err := os.Open(cwd + "/ginsrv/config.json")
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return ""
-	}
-	defer file.Close()
-	config := datastruct.Config{}
-	if err := json.NewDecoder(file).Decode(&config); err != nil {
-		fmt.Println("Error decoding JSON:", err)
-		return ""
-	}
-
-	// write in the datas about nodes with addr and pub
+	// 先准备一个默认的新配置
 	newConfig := datastruct.Config{
-		CNs:       make([]datastruct.NodeConfig, 3),
-		VNs:       make([]datastruct.NodeConfig, 3),
-		DPs:       make([]datastruct.NodeConfig, 99), //consum max = 99
-		Client:    ClientSet(config.Client),
-		Ranges:    18,
-		OutputNum: 1,
-		ServerNum: func(n int) int {
-			if n != 0 {
-				return n
-			} else {
-				return 3
-			}
-		}(config.ServerNum),
+		CNs:           make([]datastruct.NodeConfig, 3),
+		VNs:           make([]datastruct.NodeConfig, 3),
+		DPs:           make([]datastruct.NodeConfig, 99), // consum max = 99
+		Client:        ClientSet(""),
+		Ranges:        18,
+		OutputNum:     1,
+		ServerNum:     3, // 原逻辑：若未提供则默认 3
 		CuttingFactor: 0,
 	}
-	for i, v := range nodes {
-		switch i {
-		case 0, 1, 2:
-			newConfig.CNs[i] = datastruct.NodeConfig{
-				Addr: v.ListenAddress,
-				Pub:  v.Public,
-			}
-		case 3, 4, 5:
-			newConfig.VNs[i-3] = datastruct.NodeConfig{
-				Addr: v.ListenAddress,
-				Pub:  v.Public,
-			}
-		case 6, 7, 8, 9, 10, 11, 12, 13, 14:
-			newConfig.DPs[i-6] = datastruct.NodeConfig{
-				Addr: v.ListenAddress,
-				Pub:  v.Public,
-			}
+
+	// 读取 CN: cn1..cn3
+	for i := 1; i <= 3; i++ {
+		var st datastruct.SeverToml
+		path := cwdLoad + "/cn" + strconv.Itoa(i) + "_config.toml"
+		if !loadServerToml(path, &st) {
+			return ""
+		}
+		newConfig.CNs[i-1] = datastruct.NodeConfig{
+			Addr: st.ListenAddress,
+			Pub:  st.Public,
 		}
 	}
 
-	// save
+	// 读取 VN: vn1..vn3
+	for i := 1; i <= 3; i++ {
+		var st datastruct.SeverToml
+		path := cwdLoad + "/vn" + strconv.Itoa(i) + "_config.toml"
+		if !loadServerToml(path, &st) {
+			return ""
+		}
+		newConfig.VNs[i-1] = datastruct.NodeConfig{
+			Addr: st.ListenAddress,
+			Pub:  st.Public,
+		}
+	}
+
+	// 读取 DP: dp7..dp15
+	dpIdx := 0
+	for i := 7; i <= 15; i++ {
+		var st datastruct.SeverToml
+		path := cwdLoad + "/dp" + strconv.Itoa(i) + "_config.toml"
+		if !loadServerToml(path, &st) {
+			return ""
+		}
+		newConfig.DPs[dpIdx] = datastruct.NodeConfig{
+			Addr: st.ListenAddress,
+			Pub:  st.Public,
+		}
+		dpIdx++
+	}
+
+	// 尝试加载当前 ginsrv/config.json，尽量保留其配置字段
+	if file, err := os.Open(cwd + "/ginsrv/config.json"); err == nil {
+		defer file.Close()
+		old := datastruct.Config{}
+		if err := json.NewDecoder(file).Decode(&old); err == nil {
+			if old.Client != "" {
+				newConfig.Client = ClientSet(old.Client)
+			} else {
+				newConfig.Client = ClientSet(newConfig.Client)
+			}
+			if old.ServerNum != 0 {
+				newConfig.ServerNum = old.ServerNum
+			}
+			if old.Ranges != 0 {
+				newConfig.Ranges = old.Ranges
+			}
+			if old.OutputNum != 0 {
+				newConfig.OutputNum = old.OutputNum
+			}
+			newConfig.CuttingFactor = old.CuttingFactor
+		}
+	}
+
+	// 保存到 ginsrv/config.json
 	outFile, err := os.Create(cwd + "/ginsrv/config.json")
 	if err != nil {
 		fmt.Println("Error creating file:", err)
@@ -97,7 +122,7 @@ func LoadToml() string {
 		return ""
 	}
 
-	// return the path for loadconfig
+	// 返回路径供外部 load 使用
 	return (cwd + "/ginsrv/config.json")
 }
 

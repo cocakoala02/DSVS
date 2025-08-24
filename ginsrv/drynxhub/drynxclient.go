@@ -26,7 +26,7 @@ import (
 
 // global value, maybe ok
 var config datastruct.Config
-var KnownCropIPs = map[string]string{
+var KnownCropIPs = map[string]string{ //类似一个部门注册表
 	"A": "127.0.0.1:7013",
 	"B": "127.0.0.1:7015",
 	"C": "127.0.0.1:7017",

@@ -156,6 +156,7 @@ require (
 	cloud.google.com/go/workflows v1.12.4 // indirect
 	dmitri.shuralyov.com/gpu/mtl v0.0.0-20221208032759-85de2813cf6b // indirect
 	eliasnaur.com/font v0.0.0-20230308162249-dd43949cb42d // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
 	gioui.org v0.2.0 // indirect
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
 	gioui.org/shader v1.0.6 // indirect
@@ -284,6 +285,7 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.20.0 // indirect
+	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-text/typesetting v0.0.0-20230803102845-24e03d8b5372 // indirect
 	github.com/go-text/typesetting-utils v0.0.0-20230616150549-2a7df14b6a22 // indirect

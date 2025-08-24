@@ -213,7 +213,8 @@ func (p *DataCollectionProtocol) GenerateData() (libdrynx.ResponseDPBytes, error
 	var clm []int64
 
 	var err error
-	clm, err = libdrynxencoding.GetDataFromDataProvider(p.Name(), p.Survey.Query.DptoPath, p.Survey.Query.TableName, p.Survey.Query.SQL, p.Survey.Query.Operation.NameOp)
+	// clm, err = libdrynxencoding.GetDataFromDataProvider(p.Name(), p.Survey.Query.DptoPath, p.Survey.Query.TableName, p.Survey.Query.SQL, p.Survey.Query.Operation.NameOp)
+	clm, err = libdrynxencoding.GetDataFromDataProviderV3(p.Survey.Query.SQL, p.Survey.Query.Operation.NameOp) //use real database
 	if err != nil {
 		return libdrynx.ResponseDPBytes{}, fmt.Errorf("when getting data from provider: %w", err)
 	}
