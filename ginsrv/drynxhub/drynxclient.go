@@ -28,7 +28,10 @@ import (
 var config datastruct.Config
 
 func init() {
-	path := LoadToml() //read toml file and generate config json
+	path := LoadServerInfo("root:xx..2525@tcp(127.0.0.1:3306)/DSVS?parseTime=true&timeout=2s&readTimeout=2s&multiStatements=false")
+	if path == "" {
+		log.Fatal("load server info failed")
+	}
 	LoadConfig(path)
 }
 
