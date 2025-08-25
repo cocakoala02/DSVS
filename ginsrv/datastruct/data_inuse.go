@@ -24,7 +24,7 @@ type Config struct {
 	OutputNum     int
 	ServerNum     int
 	CuttingFactor int
-	DpMap         map[string]int
+	DpMap         map[string]string
 }
 
 // a total roster for survey building

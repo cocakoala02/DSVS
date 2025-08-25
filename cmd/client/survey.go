@@ -154,18 +154,18 @@ func surveyRun(c *cli.Context) error {
 		ps = nil
 	}
 
-	dptopath := map[string]string{"tcp://127.0.0.1:7013": "../data",
-		"tcp://127.0.0.1:7015": "../data",
-		"tcp://127.0.0.1:7017": "../data",
-		"tcp://127.0.0.1:7019": "../data",
-		"tcp://127.0.0.1:7021": "../data",
-		"tcp://127.0.0.1:7023": "../data",
-		"tcp://127.0.0.1:7025": "../data",
-		"tcp://127.0.0.1:7027": "../data",
-		"tcp://127.0.0.1:7029": "../data",
-	}
+	// dptopath := map[string]string{"tcp://127.0.0.1:7013": "../data",
+	// 	"tcp://127.0.0.1:7015": "../data",
+	// 	"tcp://127.0.0.1:7017": "../data",
+	// 	"tcp://127.0.0.1:7019": "../data",
+	// 	"tcp://127.0.0.1:7021": "../data",
+	// 	"tcp://127.0.0.1:7023": "../data",
+	// 	"tcp://127.0.0.1:7025": "../data",
+	// 	"tcp://127.0.0.1:7027": "../data",
+	// 	"tcp://127.0.0.1:7029": "../data",
+	// }
 
-	tablename := "statistics_experiment_data"
+	// tablename := "statistics_experiment_data"
 
 	sq := client.GenerateSurveyQuery(
 
@@ -219,13 +219,13 @@ func surveyRun(c *cli.Context) error {
 			1.0}, // threshold key switch
 		drynx_lib.QueryDiffP{ // differential privacy
 			LapMean: 0.0, LapScale: 0.0, NoiseListSize: 0, Quanta: 0.0, Scale: 0},
-		drynx_lib.QueryDPDataGen{ // how to group by
-			GroupByValues: []int64{1}, GenerateRows: 1, GenerateDataMin: int64(0), GenerateDataMax: int64(10)},
+		// drynx_lib.QueryDPDataGen{ // how to group by
+		// 	GroupByValues: []int64{1}, GenerateRows: 1, GenerateDataMin: int64(0), GenerateDataMax: int64(10)},
 		0, // cutting factor
 		//
 		"SELECT SUM(visits) FROM statistics_experiment_data", //SQL
-		dptopath,
-		tablename,
+		// dptopath,
+		// tablename,
 	)
 
 	var wg *sync.WaitGroup

@@ -26,17 +26,6 @@ import (
 
 // global value, maybe ok
 var config datastruct.Config
-var KnownCropIPs = map[string]string{ //类似一个部门注册表
-	"A": "127.0.0.1:7013",
-	"B": "127.0.0.1:7015",
-	"C": "127.0.0.1:7017",
-	"D": "127.0.0.1:7019",
-	"E": "127.0.0.1:7021",
-	"F": "127.0.0.1:7023",
-	"G": "127.0.0.1:7025",
-	"H": "127.0.0.1:7027",
-	"I": "127.0.0.1:7029",
-}
 
 func init() {
 	path := LoadToml() //read toml file and generate config json
@@ -56,13 +45,6 @@ func LoadConfig(path string) {
 		fmt.Println("解析数据错误")
 		return
 	}
-
-	// TriRoster = datastruct.TriRoster{
-	// 	Total: len(config.CNs) + len(config.VNs) + len(config.DPs),
-	// 	CNs:   ConfigToRoster(config.CNs),
-	// 	VNs:   ConfigToRoster(config.VNs),
-	// 	DPs:   ConfigToRoster(config.DPs),
-	// }
 }
 
 func SurveyRun(req *datastruct.TriSurReq) (res float64, valres bool, err error) {
@@ -214,10 +196,10 @@ func GenSQ(req *datastruct.TriSurReq, client *drynx_services.API) (resp libdrynx
 	}
 
 	// 4. operation
-	operation := libdrynx.ChooseOperation(Operation, 1, 9, 5, config.CuttingFactor)
+	operation := libdrynx.ChooseOperation(Operation, 1, 9, 5, config.CuttingFactor) //need fix
 
 	// 5. range for each output of operation
-	var ranges []*[]int64
+	var ranges []*[]int64 //need fix,need konw the data max or min in before
 	if Operation == "sum" {
 		ranges = append(ranges, &[]int64{500, 1})
 
@@ -256,24 +238,7 @@ func GenSQ(req *datastruct.TriSurReq, client *drynx_services.API) (resp libdrynx
 	// 10. differential privacy,maybe something like these need to call at config
 	diffP := libdrynx.QueryDiffP{LapMean: 0.0, LapScale: 0.0, NoiseListSize: 0, Quanta: 0.0, Scale: 0}
 
-	// 11. how to group by
-	dataSet := libdrynx.QueryDPDataGen{GroupByValues: []int64{1}, GenerateRows: 1, GenerateDataMin: int64(100), GenerateDataMax: int64(1000)}
-
-	// 12
-	dptopath := map[string]string{"tcp://127.0.0.1:7013": "./data",
-		"tcp://127.0.0.1:7015": "./data",
-		"tcp://127.0.0.1:7017": "./data",
-		"tcp://127.0.0.1:7019": "./data",
-		"tcp://127.0.0.1:7021": "./data",
-		"tcp://127.0.0.1:7023": "./data",
-		"tcp://127.0.0.1:7025": "./data",
-		"tcp://127.0.0.1:7027": "./data",
-		"tcp://127.0.0.1:7029": "./data",
-	}
-	//13
-	tablename := "statistics_experiment_data"
-
-	return client.GenerateSurveyQuery(network.CNs, network.VNs, network.CnToDPs, network.IdToPub, surveyID, operation, ranges, signature, proofs, obfuscation, thresholdEntityProofsVerif, diffP, dataSet, config.CuttingFactor, sql, dptopath, tablename), nil
+	return client.GenerateSurveyQuery(network.CNs, network.VNs, network.CnToDPs, network.IdToPub, surveyID, operation, ranges, signature, proofs, obfuscation, thresholdEntityProofsVerif, diffP, config.CuttingFactor, sql), nil
 }
 
 // signatures for Input Validation
@@ -298,22 +263,6 @@ func SignatureOfRanges(ranges []*[]int64, nbrserver int) []*[]libdrynx.PublishSi
 	}
 	return ps
 }
-
-// // make the network for every different request instead of being a global value
-// func MakeNetWork(cropod []string) (network *datastruct.TriRoster, err error) {
-
-// 	network = &datastruct.TriRoster{
-// 		VNs: ConfigToRoster(config.VNs),
-// 	}
-
-// 	network.CNs = ConfigToRoster(config.CNs)
-// 	network.DPs = ConfigToRoster(config.DPs)
-// 	network.CnToDPs = MakeCNToDP(*network.CNs, *network.DPs)
-// 	network.Total = len(network.CNs.List) + len(network.DPs.List) + len(network.VNs.List)
-// 	network.IdToPub = MakePubMap(network)
-
-// 	return network, nil
-// }
 
 func MakeNetWork(cropod []string) (network *datastruct.TriRoster, err error) {
 	// 1) 选 VN：固定 3 个
@@ -354,66 +303,86 @@ func MakeNetWork(cropod []string) (network *datastruct.TriRoster, err error) {
 	return network, nil
 }
 
-// ------- 新增：根据部门ID选择 DP 节点 -------
-// cropod: 前端传的部门ID列表
-// allDPs: 配置中的全部 DP 列表
-// idToIndex: 可选映射(部门ID -> 在 allDPs 中的索引)，没有就按顺序取前 N 个
-func selectDPsByCropIDs(cropod []string, allDPs []datastruct.NodeConfig, idToIndex map[string]int) ([]datastruct.NodeConfig, error) {
-	// 去重，避免重复部门ID导致重复 DP
-	uniqIDs := make([]string, 0, len(cropod))
-	seen := make(map[string]struct{}, len(cropod))
-	for _, id := range cropod {
-		if _, ok := seen[id]; ok {
-			continue
+// cropod: 前端传的部门ID列表（如 ["A","B","C"]）
+// allDPs: 配置中的全部 DP 列表（每个包含 Addr 和 Pub）
+// idToAddr: 部门ID -> DP地址（例如 map["A"]="127.0.0.1:7013"）
+func selectDPsByCropIDs(cropod []string, allDPs []datastruct.NodeConfig, idToAddr map[string]string) ([]datastruct.NodeConfig, error) {
+	// 统一：至少需要 2 个 DP
+	want := 0
+	{
+		seen := make(map[string]struct{}, len(cropod))
+		for _, id := range cropod {
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			want++
 		}
-		seen[id] = struct{}{}
-		uniqIDs = append(uniqIDs, id)
-	}
+		if want < 2 {
+			fmt.Println("at least two dp")
+			return nil, fmt.Errorf("at least two dp")
 
-	want := len(uniqIDs)
-	if want < 2 {
-		want = 2 // 至少 2 个 DP
+		}
 	}
 	if want > len(allDPs) {
 		return nil, fmt.Errorf("需要 %d 个 DP，但配置中只有 %d 个", want, len(allDPs))
 	}
 
-	// 优先用映射；没有就顺序取前 N 个
-	picked := make([]datastruct.NodeConfig, 0, want)
-	if idToIndex != nil && len(idToIndex) > 0 {
-		idxSeen := make(map[int]struct{}, want)
-		for _, id := range uniqIDs {
-			idx, ok := idToIndex[id]
-			if !ok {
-				return nil, fmt.Errorf("部门ID %q 在配置 DpMap 中没有对应 DP", id)
-			}
-			if idx < 0 || idx >= len(allDPs) {
-				return nil, fmt.Errorf("DpMap[%q]=%d 越界(0..%d)", id, idx, len(allDPs)-1)
-			}
-			if _, dup := idxSeen[idx]; dup {
-				// 同一个 DP 被多个ID映射到，跳过重复
-				continue
-			}
-			idxSeen[idx] = struct{}{}
-			picked = append(picked, allDPs[idx])
-			if len(picked) == want {
-				break
-			}
-		}
-		if len(picked) < want {
-			// 映射不够就从剩余里顺序补齐
-			for i := 0; i < len(allDPs) && len(picked) < want; i++ {
-				if _, used := idxSeen[i]; used {
-					continue
-				}
-				picked = append(picked, allDPs[i])
-			}
-		}
-	} else {
-		// 无映射：按顺序取前 want 个
-		picked = append(picked, allDPs[:want]...)
+	// 建一个 addr -> index 的查找表，方便 O(1) 定位
+	addrToIdx := make(map[string]int, len(allDPs))
+	for i, dp := range allDPs {
+		addrToIdx[dp.Addr] = i
 	}
 
+	picked := make([]datastruct.NodeConfig, 0, want)
+	usedIdx := make(map[int]struct{}, want)
+
+	// 1) 先按映射挑选
+	if idToAddr != nil && len(idToAddr) > 0 {
+		seenID := make(map[string]struct{}, len(cropod))
+		for _, id := range cropod {
+			if _, ok := seenID[id]; ok {
+				continue // 去重部门ID
+			}
+			seenID[id] = struct{}{}
+			// fmt.Println(seenID)
+			addr, ok := idToAddr[id]
+			fmt.Println("ID,addr", id, addr)
+
+			if !ok {
+				// 这类报错能帮助你找出未登记的部门ID
+				fmt.Println("部门ID未在 DpMap 注册地址:", id)
+				return nil, fmt.Errorf("部门ID %q 未在 DpMap 注册地址", id)
+			}
+			idx, ok := addrToIdx[addr]
+			if !ok {
+				// 地址在映射中，但不在 allDPs 里（可能 DP 未上线 / 未被加载）
+				// 不直接失败：记录一下，后面会走补齐逻辑
+				continue
+			}
+			if _, dup := usedIdx[idx]; dup {
+				continue
+			}
+			usedIdx[idx] = struct{}{}
+			picked = append(picked, allDPs[idx])
+			if len(picked) == want {
+				return picked, nil
+			}
+		}
+	}
+
+	// // 2) 映射不足时，从剩余 allDPs 顺序补齐
+	// for i := 0; i < len(allDPs) && len(picked) < want; i++ {
+	// 	if _, used := usedIdx[i]; used {
+	// 		continue
+	// 	}
+	// 	picked = append(picked, allDPs[i])
+	// }
+
+	// 到这里应该凑够 want 个
+	// if len(picked) < want {
+	// 	return nil, fmt.Errorf("仅挑选到 %d 个 DP，不足需要的 %d 个", len(picked), want)
+	// }
 	return picked, nil
 }
 

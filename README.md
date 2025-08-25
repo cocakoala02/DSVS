@@ -31,3 +31,6 @@ sudo mysql -u root -p
 还有就是解决小数以及cuttingfactors
 真机部署
 
+need fix:
+drynxclient
+loadServerInfo.go
