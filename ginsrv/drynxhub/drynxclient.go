@@ -199,7 +199,7 @@ func GenSQ(req *datastruct.TriSurReq, client *drynx_services.API) (resp libdrynx
 	}
 
 	// 4. operation
-	operation := libdrynx.ChooseOperation(Operation, 1, 9, 5, config.CuttingFactor) //need fix
+	operation := libdrynx.ChooseOperation(Operation, 1, 15, 5, config.CuttingFactor) //need fix
 
 	// 5. range for each output of operation
 	var ranges []*[]int64 //need fix,need konw the data max or min in before
@@ -212,11 +212,11 @@ func GenSQ(req *datastruct.TriSurReq, client *drynx_services.API) (resp libdrynx
 	} else if Operation == "count" {
 		ranges = append(ranges, &[]int64{101, 1})
 	} else if Operation == "max" {
-		for i := 0; i < 9; i++ {
+		for i := 0; i < 15; i++ {
 			ranges = append(ranges, &[]int64{2, 1})
 		}
 	} else if Operation == "min" {
-		for i := 0; i < 9; i++ {
+		for i := 0; i < 15; i++ {
 			ranges = append(ranges, &[]int64{2, 1})
 		}
 	}

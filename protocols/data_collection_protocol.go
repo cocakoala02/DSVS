@@ -214,7 +214,9 @@ func (p *DataCollectionProtocol) GenerateData() (libdrynx.ResponseDPBytes, error
 
 	var err error
 	// clm, err = libdrynxencoding.GetDataFromDataProvider(p.Name(), p.Survey.Query.DptoPath, p.Survey.Query.TableName, p.Survey.Query.SQL, p.Survey.Query.Operation.NameOp)
-	clm, err = libdrynxencoding.GetDataFromDataProviderV3(p.Survey.Query.SQL, p.Survey.Query.Operation.NameOp) //use real database
+	// clm, err = libdrynxencoding.GetDataFromDataProviderV3(p.Survey.Query.SQL, p.Survey.Query.Operation.NameOp) //use real database
+	clm, err = libdrynxencoding.GetDataFromDataProviderV4(p.Survey.Query.SQL, p.Survey.Query.Operation.NameOp) //only return one/two Value for sum,count/mean
+
 	if err != nil {
 		return libdrynx.ResponseDPBytes{}, fmt.Errorf("when getting data from provider: %w", err)
 	}

@@ -30,49 +30,30 @@ func Encode(datas []int64, pubKey kyber.Point, signatures [][]libdrynx.PublishSi
 		encryptedResponse = []libunlynx.CipherText{*tmpEncryptedResponse}
 		createPrf = tmpPrfs
 		break
-	// case "cosim":
-	// 	if withProofs {
-	// 		encryptedResponse, clearResponse, createPrf = EncodeCosimWithProofs(datas, datas, pubKey, signatures, ranges)
-	// 	} else {
-	// 		encryptedResponse, clearResponse = EncodeCosim(datas, datas, pubKey)
-	// 	}
-	// 	break
 	case "mean":
 		if withProofs {
 			encryptedResponse, clearResponse, createPrf = EncodeMeanWithProofs(datas, pubKey, signatures, ranges)
 		} else {
 			encryptedResponse, clearResponse = EncodeMean(datas, pubKey)
 		}
+		// case "mean":
+		// 	if withProofs {
+		// 		if len(datas) == 2 {
+		// 			encryptedResponse, clearResponse, createPrf = EncodeMeanFromSumCountWithProofs(
+		// 				datas[0], datas[1], pubKey, signatures, ranges)
+		// 		} else {
+		// 			encryptedResponse, clearResponse, createPrf = EncodeMeanWithProofs(
+		// 				datas, pubKey, signatures, ranges)
+		// 		}
+		// 	} else {
+		// 		if len(datas) == 2 {
+		// 			encryptedResponse, clearResponse = EncodeMeanFromSumCount(
+		// 				datas[0], datas[1], pubKey)
+		// 		} else {
+		// 			encryptedResponse, clearResponse = EncodeMean(datas, pubKey)
+		// 		}
+		// 	}
 		break
-	// case "variance":
-	// 	if withProofs {
-	// 		encryptedResponse, clearResponse, createPrf = EncodeVarianceWithProofs(datas[0], pubKey, signatures, ranges)
-	// 	} else {
-	// 		encryptedResponse, clearResponse = EncodeVariance(datas[0], pubKey)
-	// 	}
-	// 	break
-	// case "lin_reg":
-	// 	d := len(datas)
-	// 	numbValues := len(datas[0])
-
-	// 	dataDimensions := make([][]int64, numbValues)
-	// 	dataYS := make([]int64, numbValues)
-	// 	for j := 0; j < numbValues; j++ {
-	// 		dataDimensions[j] = make([]int64, d-1)
-	// 		for i := 0; i < d-1; i++ {
-	// 			dataDimensions[j][i] = datas[i][j]
-	// 		}
-	// 		dataYS[j] = datas[d-1][j]
-	// 	}
-
-	// 	if withProofs {
-	// 		encryptedResponse, clearResponse, createPrf = EncodeLinearRegressionDimsWithProofs(dataDimensions, dataYS, pubKey, signatures, ranges)
-	// 		encryptedResponse, clearResponse, createPrf = EncodeLinearRegressionDimsWithProofs(dataDimensions, dataYS, pubKey, signatures, ranges)
-
-	// 	} else {
-	// 		encryptedResponse, clearResponse = EncodeLinearRegressionDims(dataDimensions, dataYS, pubKey)
-	// 	}
-	// 	break
 	case "count":
 		tmpEncryptedResponse := &libunlynx.CipherText{}
 		tmpPrfs := make([]libdrynxrange.CreateProof, 0)
@@ -84,51 +65,6 @@ func Encode(datas []int64, pubKey kyber.Point, signatures [][]libdrynx.PublishSi
 		encryptedResponse = []libunlynx.CipherText{*tmpEncryptedResponse}
 		createPrf = tmpPrfs
 		break
-	case "frequencyCount":
-		if withProofs {
-			encryptedResponse, clearResponse, createPrf = EncodeFreqCountWithProofs(datas, operation.QueryMin, operation.QueryMax, pubKey, signatures, ranges)
-		} else {
-			encryptedResponse, clearResponse = EncodeFreqCount(datas, operation.QueryMin, operation.QueryMax, pubKey)
-		}
-		break
-
-	// case "bool_AND":
-	// 	booleanBit := false
-	// 	if datas[0][0] == 1 {
-	// 		booleanBit = true
-	// 	}
-	// 	cipher := &libunlynx.CipherText{}
-	// 	clear := int64(0)
-
-	// 	if withProofs {
-	// 		prf := libdrynxrange.CreateProof{}
-	// 		cipher, clear, prf = EncodeBitANDWithProof(booleanBit, pubKey, signatures[0], (*ranges[0])[1], (*ranges[0])[0])
-	// 		createPrf = []libdrynxrange.CreateProof{prf}
-	// 	} else {
-	// 		cipher, clear = EncodeBitAND(booleanBit, pubKey)
-	// 	}
-	// 	encryptedResponse = []libunlynx.CipherText{*cipher}
-	// 	clearResponse = []int64{clear}
-	// 	break
-
-	// case "bool_OR":
-	// 	booleanBit := false
-	// 	if datas[0][0] == 1 {
-	// 		booleanBit = true
-	// 	}
-	// 	cipher := &libunlynx.CipherText{}
-	// 	clear := int64(0)
-
-	// 	if withProofs {
-	// 		prf := libdrynxrange.CreateProof{}
-	// 		cipher, clear, prf = EncodeBitOrWithProof(booleanBit, pubKey, signatures[0], (*ranges[0])[1], (*ranges[0])[0])
-	// 		createPrf = []libdrynxrange.CreateProof{prf}
-	// 	} else {
-	// 		cipher, clear = EncodeBitOr(booleanBit, pubKey)
-	// 	}
-	// 	encryptedResponse = []libunlynx.CipherText{*cipher}
-	// 	clearResponse = []int64{clear}
-	// 	break
 
 	case "min":
 		if withProofs {
@@ -136,7 +72,6 @@ func Encode(datas []int64, pubKey kyber.Point, signatures [][]libdrynx.PublishSi
 		} else {
 			encryptedResponse, clearResponse = EncodeMin(datas, operation.QueryMax, operation.QueryMin, pubKey)
 		}
-
 		break
 
 	case "max":
@@ -146,26 +81,6 @@ func Encode(datas []int64, pubKey kyber.Point, signatures [][]libdrynx.PublishSi
 			encryptedResponse, clearResponse = EncodeMax(datas, operation.QueryMax, operation.QueryMin, pubKey)
 		}
 		break
-
-		// case "union":
-		// 	if withProofs {
-		// 		encryptedResponse, clearResponse, createPrf = EncodeUnionWithProofs(datas[0], operation.QueryMin, operation.QueryMax, pubKey, signatures, ranges)
-		// 	} else {
-		// 		encryptedResponse, clearResponse = EncodeUnion(datas[0], operation.QueryMin, operation.QueryMax, pubKey)
-		// 	}
-		// 	break
-		// case "inter":
-		// 	if withProofs {
-		// 		encryptedResponse, clearResponse, createPrf = EncodeInterWithProofs(datas[0], operation.QueryMin, operation.QueryMax, pubKey, signatures, ranges)
-		// 	} else {
-		// 		encryptedResponse, clearResponse = EncodeInter(datas[0], operation.QueryMin, operation.QueryMax, pubKey)
-		// 	}
-		// case "MLeval":
-		// 	if withProofs {
-		// 		encryptedResponse, clearResponse, createPrf = EncodeModelEvaluationWithProofs(datas[0], datas[1], pubKey, signatures, ranges)
-		// 	} else {
-		// 		encryptedResponse, clearResponse = EncodeModelEvaluation(datas[0], datas[1], pubKey)
-		// 	}
 	}
 	return encryptedResponse, clearResponse, createPrf
 }
@@ -175,14 +90,8 @@ func Decode(ciphers []libunlynx.CipherText, secKey kyber.Scalar, operation libdr
 	switch operation.NameOp {
 	case "sum":
 		return []float64{float64(DecodeSum(ciphers[0], secKey))}
-	case "cosim":
-		return []float64{DecodeCosim(ciphers, secKey)}
 	case "mean":
 		return []float64{DecodeMean(ciphers, secKey)}
-	case "variance":
-		return []float64{DecodeVariance(ciphers, secKey)}
-	case "lin_reg":
-		return DecodeLinearRegressionDims(ciphers, secKey)
 	case "frequencyCount":
 		freqCount := DecodeFreqCount(ciphers, secKey)
 		result := make([]float64, len(freqCount))
@@ -194,41 +103,6 @@ func Decode(ciphers []libunlynx.CipherText, secKey kyber.Scalar, operation libdr
 		return []float64{float64(DecodeMin(ciphers, operation.QueryMin, secKey))}
 	case "max":
 		return []float64{float64(DecodeMax(ciphers, operation.QueryMin, secKey))}
-	case "bool_AND":
-		boolResult := DecodeBitAND(ciphers[0], secKey)
-		result := float64(0)
-		if boolResult {
-			result = float64(1)
-		}
-		return []float64{result}
-	case "bool_OR":
-		boolResult := DecodeBitOR(ciphers[0], secKey)
-		result := float64(0)
-		if boolResult {
-			result = float64(1)
-		}
-		return []float64{result}
-	case "union":
-		unionSet := DecodeUnion(ciphers, secKey)
-		result := make([]float64, len(unionSet))
-		for i := range result {
-			result[i] = float64(unionSet[i])
-		}
-		return result
-	case "inter":
-		interSet := DecodeInter(ciphers, secKey)
-		result := make([]float64, len(interSet))
-		for i := range result {
-			result[i] = float64(interSet[i])
-		}
-		return result
-	case "logistic regression":
-		lrParameters := operation.LRParameters
-		return DecodeLogisticRegression(ciphers, secKey, lrParameters)
-
-	case "MLeval":
-		return []float64{DecodeModelEvaluation(ciphers, secKey)}
-
 	default:
 		log.Info("no such operation:", operation)
 		cv := libunlynx.CipherVector(ciphers)

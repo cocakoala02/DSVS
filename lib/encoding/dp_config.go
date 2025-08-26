@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -23,76 +24,6 @@ var dpLocalCfg *DPLocalConfig
 func SetDPLocalConfig(cfg *DPLocalConfig) {
 	dpLocalCfg = cfg
 }
-
-// —— 下面是修改后的数据获取函数 ——
-// 去掉 DptoPath 与 dpname（不再从外部拿 DSN），只接收逻辑表名与 SQL
-
-// func GetDataFromDataProviderV2(tableLogical, sqlSurvey, opName string) ([]int64, error) {
-// 	if dpLocalCfg == nil {
-// 		return nil, fmt.Errorf("dp local config not loaded")
-// 	}
-
-// 	s := strings.TrimSpace(strings.ToUpper(sqlSurvey))
-// 	if !strings.HasPrefix(s, "SELECT") {
-// 		return nil, fmt.Errorf("only SELECT is allowed")
-// 	}
-
-// 	// 强制替换 FROM 后的表名，防止前端绕过（这里直接使用逻辑表名；
-// 	// 若你想做“逻辑表→物理表”映射，可加一个 map）
-// 	reFrom := regexp.MustCompile(`(?i)FROM\s+[\w\.\` + "`" + `"]+`)
-// 	query := reFrom.ReplaceAllString(sqlSurvey, fmt.Sprintf("FROM `%s`", tableLogical))
-
-// 	db, err := sql.Open(dpLocalCfg.Database.Driver, dpLocalCfg.Database.DSN)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("open db: %w", err)
-// 	}
-// 	defer db.Close()
-
-// 	switch strings.ToLower(opName) {
-// 	case "count", "sum", "mean", "avg", "max", "min":
-// 		row := db.QueryRow(query)
-// 		var v sql.NullFloat64
-// 		if err := row.Scan(&v); err != nil {
-// 			return nil, fmt.Errorf("scan agg: %w", err)
-// 		}
-// 		if !v.Valid {
-// 			return []int64{0}, nil
-// 		}
-// 		return []int64{int64(math.Round(v.Float64))}, nil
-
-// 	default:
-
-// 		rows, err := db.Query(query)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("query: %w", err)
-// 		}
-// 		defer rows.Close()
-
-// 		out := make([]int64, 0, 1024)
-// 		for rows.Next() {
-// 			var p sql.NullFloat64
-// 			if err := rows.Scan(&p); err != nil {
-// 				return nil, fmt.Errorf("scan row: %w", err)
-// 			}
-// 			if p.Valid {
-// 				out = append(out, int64(math.Round(p.Float64)))
-// 			}
-// 		}
-// 		if err := rows.Err(); err != nil {
-// 			return nil, err
-// 		}
-// 		return out, nil
-// 	}
-// }
-
-// 依赖：import (
-//   "database/sql"
-//   "errors"
-//   "fmt"
-//   "math"
-//   "strconv"
-//   "strings"
-// )
 
 func GetDataFromDataProviderV3(sqlSurvey, opName string) ([]int64, error) {
 	if dpLocalCfg == nil {
@@ -147,6 +78,123 @@ func GetDataFromDataProviderV3(sqlSurvey, opName string) ([]int64, error) {
 		}
 		return out, nil
 	}
+}
+
+// libdrynxencoding/dp_config.go
+func GetDataFromDataProviderV4(sqlSurvey, opName string) ([]int64, error) {
+	if dpLocalCfg == nil {
+		return nil, fmt.Errorf("dp local config not loaded")
+	}
+	s := strings.TrimSpace(sqlSurvey)
+	if s == "" {
+		return nil, errors.New("empty sql")
+	}
+	if strings.HasSuffix(s, ";") {
+		s = strings.TrimRight(s, "; \t\r\n")
+	}
+	if !strings.HasPrefix(strings.ToUpper(strings.TrimLeft(s, " \t\r\n")), "SELECT") {
+		return nil, fmt.Errorf("only SELECT is allowed")
+	}
+
+	db, err := sql.Open(dpLocalCfg.Database.Driver, dpLocalCfg.Database.DSN)
+	if err != nil {
+		return nil, fmt.Errorf("open db: %w", err)
+	}
+	defer db.Close()
+
+	switch strings.ToLower(strings.TrimSpace(opName)) {
+	case "count":
+		// 直接执行你提供的 COUNT 查询，并扫描第一列
+		row := db.QueryRow(s)
+		v, err := scanNumericAsInt64(row)
+		if err != nil {
+			return nil, fmt.Errorf("scan count: %w", err)
+		}
+		return []int64{v}, nil
+
+	case "sum":
+		// 直接执行 SUM 查询，并扫描第一列
+		row := db.QueryRow(s)
+		v, err := scanNumericAsInt64(row)
+		if err != nil {
+			return nil, fmt.Errorf("scan sum: %w", err)
+		}
+		return []int64{v}, nil
+
+	case "mean", "avg":
+		// 把 `SELECT AVG(expr) FROM ...` 自动重写为 `SELECT COALESCE(SUM(expr),0), COUNT(expr) FROM ...`
+		reAvg := regexp.MustCompile(`(?is)^\s*SELECT\s+AVG\s*\(\s*(?P<expr>.+?)\s*\)\s+FROM\s+(?P<rest>.+)$`)
+		m := reAvg.FindStringSubmatch(s)
+		if m == nil {
+			return nil, fmt.Errorf("AVG rewrite failed: expected `SELECT AVG(expr) FROM ...`, got: %q", s)
+		}
+		expr := strings.TrimSpace(m[reAvg.SubexpIndex("expr")])
+		rest := strings.TrimSpace(m[reAvg.SubexpIndex("rest")])
+
+		q := fmt.Sprintf("SELECT COALESCE(SUM(%s),0), COUNT(%s) FROM %s", expr, expr, rest)
+		row := db.QueryRow(q)
+
+		var a, b interface{}
+		if err := row.Scan(&a, &b); err != nil {
+			return nil, fmt.Errorf("scan mean(sum,count): %w", err)
+		}
+		sum, err := coerceToInt64(a)
+		if err != nil {
+			return nil, fmt.Errorf("coerce sum: %w", err)
+		}
+		cnt, err := coerceToInt64(b)
+		if err != nil {
+			return nil, fmt.Errorf("coerce count: %w", err)
+		}
+		return []int64{sum, cnt}, nil
+
+	case "min":
+		// 仍包一层，对单列结果取最小值
+		q := fmt.Sprintf("SELECT COALESCE(MIN(__v),0) FROM ( %s ) AS _q(__v)", s)
+		row := db.QueryRow(q)
+		v, err := scanNumericAsInt64(row)
+		if err != nil {
+			return nil, fmt.Errorf("scan min: %w", err)
+		}
+		return []int64{v}, nil
+
+	case "max":
+		// 仍包一层，对单列结果取最大值
+		q := fmt.Sprintf("SELECT COALESCE(MAX(__v),0) FROM ( %s ) AS _q(__v)", s)
+		row := db.QueryRow(q)
+		v, err := scanNumericAsInt64(row)
+		if err != nil {
+			return nil, fmt.Errorf("scan max: %w", err)
+		}
+		return []int64{v}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported op %q", opName)
+	}
+}
+
+// 扫描两列数值 -> (int64,int64)
+func scanTwoNumericsAsInt64(rows *sql.Rows) (int64, int64, error) {
+	cols, err := rows.Columns()
+	if err != nil {
+		return 0, 0, err
+	}
+	if len(cols) < 2 {
+		return 0, 0, fmt.Errorf("expect two numeric columns (sum,count), got %d", len(cols))
+	}
+	var a, b interface{}
+	if err := rows.Scan(&a, &b); err != nil {
+		return 0, 0, err
+	}
+	x, err := coerceToInt64(a)
+	if err != nil {
+		return 0, 0, err
+	}
+	y, err := coerceToInt64(b)
+	if err != nil {
+		return 0, 0, err
+	}
+	return x, y, nil
 }
 
 // ---- helpers ----
