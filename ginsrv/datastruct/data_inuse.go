@@ -25,6 +25,9 @@ type Config struct {
 	ServerNum     int
 	CuttingFactor int
 	DpMap         map[string]string
+	Scale         int //suo fang
+	// 新增：客户端统一的“需要缩放的浮点列”
+	FloatColumns []string `json:"float_columns"`
 }
 
 // a total roster for survey building

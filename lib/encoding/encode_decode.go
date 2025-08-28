@@ -1,7 +1,7 @@
 package libdrynxencoding
 
 import (
-	"fmt"
+	"math"
 
 	libdrynx "github.com/ldsec/drynx/lib"
 	libdrynxrange "github.com/ldsec/drynx/lib/range"
@@ -86,12 +86,21 @@ func Encode(datas []int64, pubKey kyber.Point, signatures [][]libdrynx.PublishSi
 }
 
 // Decode decodes and computes the result of a query depending on the operation
-func Decode(ciphers []libunlynx.CipherText, secKey kyber.Scalar, operation libdrynx.Operation) []float64 {
+func Decode(ciphers []libunlynx.CipherText, secKey kyber.Scalar, operation libdrynx.Operation, fixedScale int64) []float64 {
 	switch operation.NameOp {
+	// case "sum":
+	// 	return []float64{float64(DecodeSum(ciphers[0], secKey))}
 	case "sum":
-		return []float64{float64(DecodeSum(ciphers[0], secKey))}
+		sScaled := DecodeSum(ciphers[0], secKey)
+
+		return []float64{float64(sScaled) / float64(fixedScale)}
+	// case "mean":
+	// 	return []float64{DecodeMean(ciphers, secKey)}
 	case "mean":
-		return []float64{DecodeMean(ciphers, secKey)}
+		// result[0]=sumScaled, result[1]=count
+		// 你原来的 DecodeMean() 只做 sum/count；我们改成除以 S 再除 count
+		return []float64{DecodeMeanWithScale(ciphers, secKey, fixedScale)}
+
 	case "frequencyCount":
 		freqCount := DecodeFreqCount(ciphers, secKey)
 		result := make([]float64, len(freqCount))
@@ -99,10 +108,17 @@ func Decode(ciphers []libunlynx.CipherText, secKey kyber.Scalar, operation libdr
 			result[i] = float64(freqCount[i])
 		}
 		return result
+	// case "min":
+	// 	return []float64{float64(DecodeMin(ciphers, operation.QueryMin, secKey))}
+	// case "max":
+	// 	return []float64{float64(DecodeMax(ciphers, operation.QueryMin, secKey))}
 	case "min":
-		return []float64{float64(DecodeMin(ciphers, operation.QueryMin, secKey))}
+		vScaled := float64(DecodeMin(ciphers, operation.QueryMin, secKey))
+		return []float64{float64(vScaled) / float64(fixedScale)}
+
 	case "max":
-		return []float64{float64(DecodeMax(ciphers, operation.QueryMin, secKey))}
+		vScaled := float64(DecodeMax(ciphers, operation.QueryMin, secKey))
+		return []float64{float64(vScaled) / float64(fixedScale)}
 	default:
 		log.Info("no such operation:", operation)
 		cv := libunlynx.CipherVector(ciphers)
@@ -115,25 +131,91 @@ func Decode(ciphers []libunlynx.CipherText, secKey kyber.Scalar, operation libdr
 	}
 }
 
-// EncodeForFloat encodes floating points
-func EncodeForFloat(xData [][]float64, yData []int64, lrParameters libdrynx.LogisticRegressionParameters, pubKey kyber.Point,
-	signatures [][]libdrynx.PublishSignature, ranges []*[]int64, operation string) ([]libunlynx.CipherText, []int64, []libdrynxrange.CreateProof, error) {
-
-	clearResponse := make([]int64, 0)
-	encryptedResponse := make([]libunlynx.CipherText, 0)
-	prf := make([]libdrynxrange.CreateProof, 0)
-	withProofs := len(ranges) > 0
-	switch operation {
-	case "logistic regression":
-		var err error
-		if withProofs {
-			encryptedResponse, clearResponse, prf, err = EncodeLogisticRegressionWithProofs(xData, yData, lrParameters, pubKey, signatures, ranges)
-		} else {
-			encryptedResponse, clearResponse, err = EncodeLogisticRegression(xData, yData, lrParameters, pubKey)
-		}
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("when encoding response: %w", err)
-		}
+func roundTo(x float64, digits int) float64 {
+	if digits <= 0 {
+		return math.Round(x)
 	}
-	return encryptedResponse, clearResponse, prf, nil
+	p := math.Pow(10, float64(digits))
+	return math.Round(x*p) / p
+}
+
+// 仅使用“调用方传来的” floatColumns 判定是否反缩放；
+// roundDigits 控制显示小数位（例：2）
+func DecodeWithSQLAndFloatCols(
+	ciphers []libunlynx.CipherText,
+	secKey kyber.Scalar,
+	operation libdrynx.Operation,
+	scaleS int64,
+	sql string,
+	floatColumns []string,
+	roundDigits int,
+) []any {
+
+	if scaleS <= 0 {
+		scaleS = 1
+	}
+	applyScale := decideScaledBySQLOnList(sql, floatColumns)
+
+	switch operation.NameOp {
+	case "sum":
+		v := float64(DecodeSum(ciphers[0], secKey))
+		if applyScale {
+			v /= float64(scaleS)
+			return []any{roundTo(v, roundDigits)}
+
+		}
+		return []any{int64(roundTo(v, roundDigits))}
+
+	case "mean":
+		// ciphers[0] = sum, ciphers[1] = count
+		res := make([]int64, len(ciphers))
+		wg := libunlynx.StartParallelize(len(ciphers))
+		for i, ct := range ciphers {
+			go func(i int, j libunlynx.CipherText) {
+				defer wg.Done()
+				res[i] = libunlynx.DecryptIntWithNeg(secKey, j)
+			}(i, ct)
+		}
+		libunlynx.EndParallelize(wg)
+
+		sum := float64(res[0])
+		if applyScale {
+			sum /= float64(scaleS)
+		}
+		cnt := float64(res[1])
+		mean := 0.0
+		if cnt != 0 {
+			mean = sum / cnt
+		}
+		return []any{roundTo(mean, roundDigits)}
+
+	case "min":
+		v := float64(DecodeMin(ciphers, operation.QueryMin, secKey))
+		if applyScale {
+			v /= float64(scaleS)
+			return []any{roundTo(v, roundDigits)}
+		}
+		return []any{int64(roundTo(v, roundDigits))}
+
+	case "max":
+		v := float64(DecodeMax(ciphers, operation.QueryMin, secKey))
+		if applyScale {
+			v /= float64(scaleS)
+			return []any{roundTo(v, roundDigits)}
+		}
+		return []any{int64(roundTo(v, roundDigits))}
+
+	case "count":
+		return []any{int64(DecodeSum(ciphers[0], secKey))}
+
+	default:
+		// 其他操作维持原样（如需，也可拓展按列反缩放）
+		cv := libunlynx.CipherVector(ciphers)
+		ints := libunlynx.DecryptIntVectorWithNeg(secKey, &cv)
+		out := make([]any, len(ints))
+		for i, v := range ints {
+			out[i] = float64(v)
+		}
+		return out
+	}
 }

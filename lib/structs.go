@@ -199,6 +199,9 @@ type Query struct {
 
 	//simulation
 	CuttingFactor int
+
+	FixedScale   int64 //suo fang
+	FloatColumns []string
 }
 
 // Operation defines the operation in the query
@@ -571,6 +574,7 @@ func QueryToProofsNbrs(q SurveyQuery) []int {
 	// key switching
 	prfKS := nbrServers
 	return []int{prfRange, prfShuffling, prfAggr, prfObf, prfKS}
+	// return []int{prfRange, prfAggr, prfObf, prfShuffling, prfKS}
 }
 
 // UpdateDB put in a given bucket the value as byte with given key.

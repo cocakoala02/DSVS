@@ -48,8 +48,7 @@ func NewDrynxClient(entryPoint *network.ServerIdentity, clientID string) *API {
 		private:    keys.Private,
 	}
 
-	limit := int64(99999)
-	// log.LLvl1("limitlimitlimitlimitlimitlimitlimit:", limit)
+	limit := int64(999999)
 
 	libunlynx.CreateDecryptionTable(limit, newClient.public, newClient.private)
 	return newClient
@@ -59,7 +58,13 @@ func NewDrynxClient(entryPoint *network.ServerIdentity, clientID string) *API {
 //______________________________________________________________________________________________________________________
 
 // GenerateSurveyQuery generates a query with all the information in parameters
-func (c *API) GenerateSurveyQuery(rosterServers, rosterVNs *onet.Roster, dpToServer map[string]*[]network.ServerIdentity, idToPublic map[string]kyber.Point, surveyID string, operation libdrynx.Operation, ranges []*[]int64, ps []*[]libdrynx.PublishSignatureBytes, proofs int, obfuscation bool, thresholds []float64, diffP libdrynx.QueryDiffP, cuttingFactor int, sqlsurvey string) libdrynx.SurveyQuery {
+func (c *API) GenerateSurveyQuery(rosterServers,
+	rosterVNs *onet.Roster, dpToServer map[string]*[]network.ServerIdentity,
+	idToPublic map[string]kyber.Point, surveyID string, operation libdrynx.Operation,
+	ranges []*[]int64, ps []*[]libdrynx.PublishSignatureBytes, proofs int, obfuscation bool,
+	thresholds []float64, diffP libdrynx.QueryDiffP, cuttingFactor int, sqlsurvey string,
+	scale int64, floatColumns []string) libdrynx.SurveyQuery {
+
 	size1 := 0
 	size2 := 0
 	if ps != nil {
@@ -104,13 +109,15 @@ func (c *API) GenerateSurveyQuery(rosterServers, rosterVNs *onet.Roster, dpToSer
 			SQL: sqlsurvey,
 			// DptoPath:  dptoPath,
 			// TableName: tablename,
+			FixedScale:   scale,
+			FloatColumns: floatColumns,
 		},
 	}
 	return sq
 }
 
 // SendSurveyQuery creates a survey based on a set of entities (servers) and a survey description.
-func (c *API) SendSurveyQuery(sq libdrynx.SurveyQuery) (*[]string, *[][]float64, error) {
+func (c *API) SendSurveyQuery(sq libdrynx.SurveyQuery) (*[]string, *[][]any, error) {
 	log.Lvl2("[API] <Drynx> Client", c.clientID, "is creating a query with SurveyID: ", sq.SurveyID)
 	log.Lvl2(c.entryPoint)
 
@@ -132,11 +139,13 @@ func (c *API) SendSurveyQuery(sq libdrynx.SurveyQuery) (*[]string, *[][]float64,
 	log.Lvl2("[API] <Drynx> Client", c.clientID, "is decrypting the results")
 
 	grp := make([]string, len(sr.Data))
-	aggr := make([][]float64, len(sr.Data))
+	aggr := make([][]any, len(sr.Data))
 	count := 0
 	for i, res := range sr.Data {
 		grp[count] = i
-		aggr[count] = libdrynxencoding.Decode(res, c.private, sq.Query.Operation)
+		// aggr[count] = libdrynxencoding.Decode(res, c.private, sq.Query.Operation, sq.Query.FixedScale)
+		aggr[count] = libdrynxencoding.DecodeWithSQLAndFloatCols(res, c.private, sq.Query.Operation,
+			sq.Query.FixedScale, sq.Query.SQL, sq.Query.FloatColumns, 2) //liang wei xiao shu
 		count++
 	}
 	libunlynx.EndTimer(clientDecode)

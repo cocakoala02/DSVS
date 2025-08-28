@@ -16,4 +16,4 @@ WebSocketTLSCertificateKey = ""
 
 [database]
   driver = "mysql"
-  dsn = "root:xx..2525@tcp(127.0.0.1:3306)/learn_sql2?parseTime=true&timeout=2s&readTimeout=2s"
+  dsn = "root:xx..2525@tcp(127.0.0.1:3306)/learn_sql?parseTime=true&timeout=2s&readTimeout=2s"

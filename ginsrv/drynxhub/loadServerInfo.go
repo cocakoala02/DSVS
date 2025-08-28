@@ -45,10 +45,12 @@ func LoadServerInfo(dsn string) string {
 		DPs:           make([]datastruct.NodeConfig, 0, 32), // 动态追加 DP
 		DpMap:         make(map[string]string),              // ID -> Addr
 		Client:        ClientSet(""),
-		Ranges:        18,
-		OutputNum:     1,
-		ServerNum:     3,
-		CuttingFactor: 0,
+		Ranges:        18, //no use
+		OutputNum:     1,  //no use
+		ServerNum:     3,  //no use
+		CuttingFactor: 0,  //no use
+		Scale:         2,
+		FloatColumns:  []string{"money"},
 	}
 
 	// 4) 读取 CN: cn1..cn3
@@ -105,28 +107,28 @@ func LoadServerInfo(dsn string) string {
 		return ""
 	}
 
-	// 7) 合并旧 config.json 的可配置项（若存在则尽量保留）
-	if f, err := os.Open(filepath.Join(cwd, "ginsrv", "config.json")); err == nil {
-		defer f.Close()
-		old := datastruct.Config{}
-		if err := json.NewDecoder(f).Decode(&old); err == nil {
-			if old.Client != "" {
-				newCfg.Client = ClientSet(old.Client)
-			} else {
-				newCfg.Client = ClientSet(newCfg.Client)
-			}
-			if old.ServerNum != 0 {
-				newCfg.ServerNum = old.ServerNum
-			}
-			if old.Ranges != 0 {
-				newCfg.Ranges = old.Ranges
-			}
-			if old.OutputNum != 0 {
-				newCfg.OutputNum = old.OutputNum
-			}
-			newCfg.CuttingFactor = old.CuttingFactor
-		}
-	}
+	// // 7) 合并旧 config.json 的可配置项（若存在则尽量保留）
+	// if f, err := os.Open(filepath.Join(cwd, "ginsrv", "config.json")); err == nil {
+	// 	defer f.Close()
+	// 	old := datastruct.Config{}
+	// 	if err := json.NewDecoder(f).Decode(&old); err == nil {
+	// 		if old.Client != "" {
+	// 			newCfg.Client = ClientSet(old.Client)
+	// 		} else {
+	// 			newCfg.Client = ClientSet(newCfg.Client)
+	// 		}
+	// 		if old.ServerNum != 0 {
+	// 			newCfg.ServerNum = old.ServerNum
+	// 		}
+	// 		if old.Ranges != 0 {
+	// 			newCfg.Ranges = old.Ranges
+	// 		}
+	// 		if old.OutputNum != 0 {
+	// 			newCfg.OutputNum = old.OutputNum
+	// 		}
+	// 		newCfg.CuttingFactor = old.CuttingFactor
+	// 	}
+	// }
 
 	// 8) 写回 ginsrv/config.json
 	outPath := filepath.Join(cwd, "ginsrv", "config.json")

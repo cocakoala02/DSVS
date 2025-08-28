@@ -113,15 +113,8 @@ func run(c *cli.Context) error {
 	if _, err := toml.DecodeFile(config, &conf); err != nil {
 		return fmt.Errorf("parse config: %w", err)
 	}
-
 	libenc.SetDPLocalConfig(&libenc.DPLocalConfig{
-		Database: struct {
-			Driver string `toml:"driver"`
-			DSN    string `toml:"dsn"`
-		}{
-			Driver: conf.Database.Driver,
-			DSN:    conf.Database.DSN,
-		},
+		Database: conf.Database,
 	})
 
 	// 再用 onet_app 启动（它只认识原始结构；但多余字段不会影响运行）

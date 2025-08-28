@@ -76,6 +76,22 @@ func DecodeMean(result []libunlynx.CipherText, secKey kyber.Scalar) float64 {
 	return float64(resultsClear[0]) / float64(resultsClear[1]) //zai zhe li zuo chu fa, fu dian shu
 }
 
+// lib/encoding/mean.go
+func DecodeMeanWithScale(result []libunlynx.CipherText, secKey kyber.Scalar, fixedScale int64) float64 {
+	resultsClear := make([]int64, len(result))
+	wg := libunlynx.StartParallelize(len(result))
+	for i, j := range result {
+		go func(i int, j libunlynx.CipherText) {
+			defer wg.Done()
+			resultsClear[i] = libunlynx.DecryptIntWithNeg(secKey, j)
+		}(i, j)
+	}
+	libunlynx.EndParallelize(wg)
+
+	S := float64(fixedScale)
+	return (float64(resultsClear[0]) / S) / float64(resultsClear[1])
+}
+
 // // 已聚合输入（sum,count）：无证明
 // func EncodeMeanFromSumCount(sum int64, count int64, pubKey kyber.Point) ([]libunlynx.CipherText, []int64) {
 // 	encSum, _ := libunlynx.EncryptIntGetR(pubKey, sum)

@@ -23,7 +23,7 @@ sudo mysql -u root -p
 2. 数据大小不能超过10000                                go/pkg/mod/github.com/ldsec/unlynx/lib/ crypto.go： 修改const MaxHomomorphicInt int64 = 10_000_000，但是速度及其的慢，尝试使用cuttingFactors
 3. 目前没有连接数据库                                    已经使用了mysql并新增了dp启动方式
 4. 目前部门IP为手动设置                                  已经解决 by import cropID
-5. 创建一个数据库表来存DP的信息，最少有公钥、地址,ID         已经完成
+5. 创建一个数据库表来存DP的信息，最少有公钥、地址,ID          已经完成
 INSERT INTO dp_info_table (ID, Addr, Pub) VALUES
 ('A','127.0.0.1:7013','303414b7221c34f41a028657cb5f5ef025f3a875673735d568586e4458d7bbae20b75d911b5379f1fbedf2cf57437377522c58f489f13bba1ccf78346d48b870'),
 ('B','127.0.0.1:7015','5eec4664ccb37b460c3841aaf470a768d345418a84e88644abcd7b5fe900214b01d8e6ae17e038deced6862a42f5d05588767cbb58a1e418e030e8edb82860a4'),
@@ -38,15 +38,16 @@ ON DUPLICATE KEY UPDATE
   Addr = VALUES(Addr),
   Pub  = VALUES(Pub);
 
-6. sql只返回一个值而不再是一列                            已经完成，对于sum、avg、count仅仅返回值  
-
+6. sql只返回一个值而不再是一列                            已经完成，对于sum、avg、count仅仅返回值,而不是列
+7. 不支持小数                                           通过缩放支持两位定点小数
+8. 数值大小进行限定，                                    将加密上限定为100 0000 后面考虑写一个程序可以自动处理传入的表格，将其大小进行控制，缩放
 ## todo
-1. cuttingfactors
-2. 小数
-3. 真机部署
+1. 真机部署
 
 ### need fix:
 ---
     drynxclient:  需要提前知道表的数据的最值
 ---
     loadServerInfo:   需要研究清楚这个端口号的意义
+---
+    services:          simluation = true

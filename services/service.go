@@ -428,7 +428,7 @@ func (s *ServiceDrynx) HandleSurveyQuery(recq *libdrynx.SurveyQuery) (network.Me
 		info("completed the query processing...")
 
 		survey := castToSurvey(s.Survey.Get(recq.SurveyID))
-		result := survey.QueryResponseState
+		result := survey.QueryResponseState // 获取结果
 		libunlynx.EndTimer(startJustExecution)
 		return &result, nil
 	}

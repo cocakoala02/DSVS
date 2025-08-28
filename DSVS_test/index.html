@@ -194,6 +194,13 @@
 
       if (resp.ok) { // HTTP 2xx 成功分支
         resultBox.textContent = pretty(json.data ?? json.raw ?? "(无数据)"); // 显示 data 或 raw
+        //const maybeNum = Number(json.data);
+        //if (Number.isFinite(maybeNum)) {
+        //  resultBox.textContent = maybeNum.toFixed(2);  // 总是 2 位，如 17.00
+        //} else {
+        //  resultBox.textContent = pretty(json.data ?? json.raw ?? "(无数据)");
+        //}
+
         // const succ = (json.success === true || json.success === "true"); // 兼容布尔/字符串
         const valres = json.valres;
         validationBox.textContent = valres ? "验证通过" : "验证未通过";

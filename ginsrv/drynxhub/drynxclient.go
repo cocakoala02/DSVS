@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -27,12 +28,29 @@ import (
 // global value, maybe ok
 var config datastruct.Config
 
+// 新增：全局定点比例
+var fixedScale int64 = 1 // S = 10^p，默认 1 表示整型兼容
+
+// 设置小数位数 p（例如 p=2 -> S=100）
+func SetDecimalPlaces(p int) {
+	if p < 0 {
+		p = 0
+	}
+	if p > 9 {
+		p = 9
+	} // 防止溢出
+	fixedScale = int64(math.Pow10(p))
+}
+
+// func FixedScale() int64 { return fixedScale }
+
 func init() {
 	path := LoadServerInfo("root:xx..2525@tcp(127.0.0.1:3306)/DSVS?parseTime=true&timeout=2s&readTimeout=2s&multiStatements=false")
 	if path == "" {
 		log.Fatal("load server info failed")
 	}
 	LoadConfig(path)
+	SetDecimalPlaces(config.Scale)
 }
 
 // to load the config which has the roster of cn,vn,dp
@@ -50,7 +68,7 @@ func LoadConfig(path string) {
 	}
 }
 
-func SurveyRun(req *datastruct.TriSurReq) (res float64, valres bool, err error) {
+func SurveyRun(req *datastruct.TriSurReq) (res any, valres bool, err error) {
 
 	// 2. 生成查询语句
 	client := drynx_services.NewDrynxClient(&onet_network.ServerIdentity{URL: "http://" + config.Client}, "ClientOfSurvey")
@@ -93,7 +111,7 @@ func SurveyRun(req *datastruct.TriSurReq) (res float64, valres bool, err error) 
 	if err != nil {
 		return res, false, err
 	}
-	result, ok := float64(0), false
+	result, ok := any(0), false
 	for _, a := range *aggregations {
 		if len(a) != 1 {
 			return res, false, errors.New("line in aggregation larger than one, dunno how to print")
@@ -173,7 +191,7 @@ func SurveyRun(req *datastruct.TriSurReq) (res float64, valres bool, err error) 
 // set the params of GenerateSurvey
 func GenSQ(req *datastruct.TriSurReq, client *drynx_services.API) (resp libdrynx.SurveyQuery, err error) {
 	// 1. network
-	network, err := MakeNetWork(req.CorpID)
+	network, err := MakeNetWork(req.CropID)
 	if err != nil {
 		return libdrynx.SurveyQuery{}, err
 	}
@@ -241,7 +259,10 @@ func GenSQ(req *datastruct.TriSurReq, client *drynx_services.API) (resp libdrynx
 	// 10. differential privacy,maybe something like these need to call at config
 	diffP := libdrynx.QueryDiffP{LapMean: 0.0, LapScale: 0.0, NoiseListSize: 0, Quanta: 0.0, Scale: 0}
 
-	return client.GenerateSurveyQuery(network.CNs, network.VNs, network.CnToDPs, network.IdToPub, surveyID, operation, ranges, signature, proofs, obfuscation, thresholdEntityProofsVerif, diffP, config.CuttingFactor, sql), nil
+	//11
+	scale := fixedScale
+
+	return client.GenerateSurveyQuery(network.CNs, network.VNs, network.CnToDPs, network.IdToPub, surveyID, operation, ranges, signature, proofs, obfuscation, thresholdEntityProofsVerif, diffP, config.CuttingFactor, sql, scale, config.FloatColumns), nil
 }
 
 // signatures for Input Validation
